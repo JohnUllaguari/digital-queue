@@ -26,30 +26,44 @@ function Index() {
   const [form, setForm] = useState({ nombre: "", cedula: "", motivo: "" });
   const [status, setStatus] = useState<"idle" | "loading" | "success" | "error">("idle");
   const [turno, setTurno] = useState<string | null>(null);
+  const [errors, setErrors] = useState<{ cedula?: string }>({});
+
+  const N8N_WEBHOOK_URL = "http://localhost:5678/webhook/21c9ae4f-fca6-473f-975a-8b07ff809794";
 
   const time = now.toLocaleTimeString("es-ES", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
   const date = now.toLocaleDateString("es-ES", { weekday: "long", day: "numeric", month: "long", year: "numeric" });
 
+  const validate = () => {
+    const newErrors: { cedula?: string } = {};
+    if (!/^\d{10}$/.test(form.cedula)) {
+      newErrors.cedula = "La cédula debe tener exactamente 10 dígitos numéricos.";
+    }
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
+
   const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!form.nombre || !form.cedula || !form.motivo) return;
+    if (!validate()) return;
     setStatus("loading");
     try {
-      // TODO: replace with your webhook URL
-      const WEBHOOK_URL = "";
-      if (WEBHOOK_URL) {
-        await fetch(WEBHOOK_URL, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ ...form, timestamp: new Date().toISOString() }),
-        });
-      } else {
-        await new Promise((r) => setTimeout(r, 700));
-      }
+      const payload = {
+        nombre: form.nombre.toLowerCase(),
+        cedula: form.cedula,
+        motivo: form.motivo.toLowerCase(),
+        timestamp: new Date().toISOString(),
+      };
+      await fetch(N8N_WEBHOOK_URL, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
       const code = "A-" + String(Math.floor(Math.random() * 900) + 100);
       setTurno(code);
       setStatus("success");
       setForm({ nombre: "", cedula: "", motivo: "" });
+      setErrors({});
       setTimeout(() => setStatus("idle"), 4000);
     } catch {
       setStatus("error");
@@ -124,8 +138,14 @@ function Index() {
                 label="Cédula o identificación"
                 placeholder="Ej. 0102030405"
                 value={form.cedula}
-                onChange={(v) => setForm({ ...form, cedula: v })}
+                onChange={(v) => {
+                  // Solo dígitos, máximo 10
+                  const onlyDigits = v.replace(/\D/g, "").slice(0, 10);
+                  setForm({ ...form, cedula: onlyDigits });
+                  if (errors.cedula) setErrors({});
+                }}
                 inputMode="numeric"
+                error={errors.cedula}
               />
               <Field
                 icon={<AlertCircle className="w-4 h-4" />}
@@ -180,6 +200,7 @@ function Field({
   onChange,
   textarea,
   inputMode,
+  error,
 }: {
   icon: React.ReactNode;
   label: string;
@@ -188,9 +209,13 @@ function Field({
   onChange: (v: string) => void;
   textarea?: boolean;
   inputMode?: "numeric" | "text";
+  error?: string;
 }) {
   const base =
-    "w-full rounded-xl border border-border bg-background px-4 py-3.5 text-base text-foreground placeholder:text-muted-foreground/70 outline-none transition-all focus:border-transparent focus:ring-4 focus:ring-[color:var(--hospital-blue-soft)] focus:shadow-[0_0_0_1px_var(--hospital-blue)]";
+    "w-full rounded-xl border bg-background px-4 py-3.5 text-base text-foreground placeholder:text-muted-foreground/70 outline-none transition-all focus:border-transparent focus:ring-4 focus:ring-[color:var(--hospital-blue-soft)] focus:shadow-[0_0_0_1px_var(--hospital-blue)]";
+  const borderClass = error
+    ? "border-[color:var(--hospital-red)] focus:shadow-[0_0_0_1px_var(--hospital-red)]"
+    : "border-border";
   return (
     <label className="block">
       <span className="flex items-center gap-2 text-sm font-medium text-foreground mb-2">
@@ -204,7 +229,7 @@ function Field({
           placeholder={placeholder}
           value={value}
           onChange={(e) => onChange(e.target.value)}
-          className={base + " resize-none"}
+          className={`${base} ${borderClass} resize-none`}
         />
       ) : (
         <input
@@ -214,8 +239,14 @@ function Field({
           placeholder={placeholder}
           value={value}
           onChange={(e) => onChange(e.target.value)}
-          className={base}
+          className={`${base} ${borderClass}`}
         />
+      )}
+      {error && (
+        <p className="mt-1.5 text-xs flex items-center gap-1" style={{ color: "var(--hospital-red)" }}>
+          <AlertCircle className="w-3 h-3 flex-shrink-0" />
+          {error}
+        </p>
       )}
     </label>
   );
