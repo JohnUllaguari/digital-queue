@@ -24,7 +24,7 @@ function useClock() {
 function Index() {
   const now = useClock();
   const [form, setForm] = useState({ nombre: "", cedula: "", motivo: "" });
-  const [status, setStatus] = useState<"idle" | "loading" | "success" | "error">("idle");
+  const [status, setStatus] = useState<"idle" | "loading" | "success" | "error" | "no-procede">("idle");
   const [responseData, setResponseData] = useState<unknown | null>(null);
   const [errors, setErrors] = useState<{ cedula?: string }>({});
   const [webhookError, setWebhookError] = useState<string | null>(null);
@@ -42,6 +42,17 @@ function Index() {
     return Object.keys(newErrors).length === 0;
   };
 
+  const isNoProcedeResponse = (payload: unknown) => {
+    if (typeof payload === "string") {
+      return payload.toUpperCase().includes("NO PROCEDE");
+    }
+    if (payload && typeof payload === "object") {
+      const text = JSON.stringify(payload).toUpperCase();
+      return text.includes("NO PROCEDE");
+    }
+    return false;
+  };
+
   const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!form.nombre || !form.cedula || !form.motivo) return;
@@ -49,7 +60,8 @@ function Index() {
     setStatus("loading");
     setWebhookError(null);
     try {
-      const resp = await fetch("/api/turno-request", {
+      // Test webhook (keep commented for future tests): http://localhost:5678/webhook-test/registro-turno
+      const resp = await fetch("http://localhost:5678/webhook/registro-turno", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -59,6 +71,13 @@ function Index() {
         }),
       });
       const data = await resp.json().catch(() => null);
+
+      if (isNoProcedeResponse(data)) {
+        setResponseData(data);
+        setStatus("no-procede");
+        return;
+      }
+
       if (!resp.ok || !data || !data.ok) {
         throw new Error((data && (data.error || data.details)) || "Error al enviar la solicitud");
       }
@@ -144,7 +163,37 @@ function Index() {
             <p className="mt-2 text-base text-muted-foreground">Ingrese los datos del paciente</p>
           </header>
 
-          {status === "success" && responseData ? (
+          {status === "no-procede" && responseData ? (
+            <div className="rounded-xl p-6 transition-all" style={{ background: "rgba(220, 38, 38, 0.12)" }}>
+              <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-red-100 text-red-700">
+                <AlertCircle className="w-7 h-7" />
+              </div>
+              <h2 className="text-center text-2xl font-semibold text-red-900">No procede</h2>
+              <p className="mt-3 text-center text-sm text-red-700">
+                El hospital no tiene convenio con la aseguradora indicada y no puede tramitar el ingreso en este momento.
+              </p>
+              <p className="mt-3 text-center text-sm text-red-700">
+                Se asignará una ambulancia de preferencia para su traslado.
+              </p>
+              <div className="mt-4 text-left rounded-xl border border-red-200 bg-white p-4 overflow-x-auto">
+                <pre className="text-xs leading-5 text-red-900 whitespace-pre-wrap break-words">
+                  {JSON.stringify(responseData, null, 2)}
+                </pre>
+              </div>
+              <div className="mt-5 flex gap-3 justify-center">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setResponseData(null);
+                    setStatus("idle");
+                  }}
+                  className="inline-flex items-center justify-center rounded-xl border border-red-300 bg-white px-4 py-3 text-sm font-semibold text-red-900 hover:bg-red-50"
+                >
+                  Cerrar
+                </button>
+              </div>
+            </div>
+          ) : status === "success" && responseData ? (
             <div className="rounded-xl p-6 transition-all" style={{ background: "var(--hospital-blue-soft)" }}>
               <CheckCircle2 className="w-10 h-10 mx-auto mb-3" style={{ color: "var(--hospital-green)" }} />
               <p className="text-sm text-muted-foreground">Respuesta recibida del webhook</p>
