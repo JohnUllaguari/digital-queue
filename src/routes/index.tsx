@@ -25,10 +25,10 @@ function Index() {
   const now = useClock();
   const [form, setForm] = useState({ nombre: "", cedula: "", motivo: "" });
   const [status, setStatus] = useState<"idle" | "loading" | "success" | "error">("idle");
-  const [turno, setTurno] = useState<string | null>(null);
+  const [responseData, setResponseData] = useState<unknown | null>(null);
   const [errors, setErrors] = useState<{ cedula?: string }>({});
-
-  const N8N_WEBHOOK_URL = "http://localhost:5678/webhook/21c9ae4f-fca6-473f-975a-8b07ff809794";
+  const [webhookError, setWebhookError] = useState<string | null>(null);
+  const isLoading = status === "loading";
 
   const time = now.toLocaleTimeString("es-ES", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
   const date = now.toLocaleDateString("es-ES", { weekday: "long", day: "numeric", month: "long", year: "numeric" });
@@ -47,28 +47,60 @@ function Index() {
     if (!form.nombre || !form.cedula || !form.motivo) return;
     if (!validate()) return;
     setStatus("loading");
+    setWebhookError(null);
     try {
-      const payload = {
-        nombre: form.nombre.toLowerCase(),
-        cedula: form.cedula,
-        motivo: form.motivo.toLowerCase(),
-        timestamp: new Date().toISOString(),
-      };
-      await fetch(N8N_WEBHOOK_URL, {
+      const resp = await fetch("/api/turno-request", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
+        body: JSON.stringify({
+          nombre: form.nombre.toLowerCase(),
+          cedula: form.cedula,
+          motivo: form.motivo.toLowerCase(),
+        }),
       });
-      const code = "A-" + String(Math.floor(Math.random() * 900) + 100);
-      setTurno(code);
+      const data = await resp.json().catch(() => null);
+      if (!resp.ok || !data || !data.ok) {
+        throw new Error((data && (data.error || data.details)) || "Error al enviar la solicitud");
+      }
+
+      setResponseData(data.data ?? null);
       setStatus("success");
       setForm({ nombre: "", cedula: "", motivo: "" });
       setErrors({});
-      setTimeout(() => setStatus("idle"), 4000);
-    } catch {
+    } catch (error) {
       setStatus("error");
+      setWebhookError(error instanceof Error ? error.message : "Ocurrió un error al enviar el formulario.");
       setTimeout(() => setStatus("idle"), 3000);
     }
+  };
+
+  const downloadPDF = async () => {
+    if (!responseData) return;
+    const { jsPDF } = await import("jspdf");
+    const QRCode: any = (await import("qrcode")).default;
+
+    const dataString = JSON.stringify(responseData, null, 2);
+    const qrDataUrl = await QRCode.toDataURL(dataString, { margin: 1, width: 200 });
+
+    const pdf = new jsPDF({ unit: "pt", format: "a4" });
+    pdf.setFontSize(18);
+    pdf.text("Registro de Atención - Respuesta n8n", 40, 50);
+    pdf.addImage(qrDataUrl, "PNG", 430, 40, 120, 120);
+    pdf.setFontSize(11);
+    const lines: string[] = pdf.splitTextToSize(dataString, 500) as string[];
+    let cursorY = 190;
+    const lineHeight = 14;
+
+    lines.forEach((line: string) => {
+      if (cursorY > 740) {
+        pdf.addPage();
+        cursorY = 40;
+      }
+      pdf.text(line, 40, cursorY);
+      cursorY += lineHeight;
+    });
+
+    pdf.save(`respuesta-webhook-${Date.now()}.pdf`);
   };
 
   return (
@@ -112,17 +144,41 @@ function Index() {
             <p className="mt-2 text-base text-muted-foreground">Ingrese los datos del paciente</p>
           </header>
 
-          {status === "success" && turno ? (
-            <div
-              className="rounded-xl p-6 text-center transition-all"
-              style={{ background: "var(--hospital-blue-soft)" }}
-            >
+          {status === "success" && responseData ? (
+            <div className="rounded-xl p-6 transition-all" style={{ background: "var(--hospital-blue-soft)" }}>
               <CheckCircle2 className="w-10 h-10 mx-auto mb-3" style={{ color: "var(--hospital-green)" }} />
-              <p className="text-sm text-muted-foreground">Su turno ha sido generado</p>
-              <p className="text-5xl font-bold tracking-tight mt-2" style={{ color: "var(--hospital-blue)" }}>
-                {turno}
-              </p>
-              <p className="text-sm text-muted-foreground mt-3">Por favor espere a ser llamado</p>
+              <p className="text-sm text-muted-foreground">Respuesta recibida del webhook</p>
+              <div className="mt-4 text-left rounded-xl border border-border bg-background p-4 overflow-x-auto">
+                <pre className="text-xs leading-5 text-foreground whitespace-pre-wrap break-words">
+                  {JSON.stringify(responseData, null, 2)}
+                </pre>
+              </div>
+              <div className="mt-5 flex gap-3 justify-center">
+                <button
+                  type="button"
+                  onClick={downloadPDF}
+                  className="inline-flex items-center justify-center rounded-xl bg-hospital-blue px-4 py-3 text-sm font-semibold text-white hover:opacity-95"
+                  style={{ boxShadow: "0 8px 20px -8px var(--hospital-blue)" }}
+                >
+                  Descargar PDF con QR
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setResponseData(null);
+                    setStatus("idle");
+                  }}
+                  className="inline-flex items-center justify-center rounded-xl border border-border bg-background px-4 py-3 text-sm font-semibold text-foreground hover:bg-accent"
+                >
+                  Cerrar
+                </button>
+              </div>
+            </div>
+          ) : status === "loading" ? (
+            <div className="rounded-xl p-6 text-center">
+              <Loader2 className="w-10 h-10 mx-auto mb-3 animate-spin" />
+              <p className="text-sm text-muted-foreground">Creando ticket...</p>
+              <p className="text-sm text-muted-foreground mt-2">Esperando respuesta del webhook de n8n</p>
             </div>
           ) : (
             <form onSubmit={onSubmit} className="space-y-5">
@@ -158,20 +214,20 @@ function Index() {
 
               {status === "error" && (
                 <p className="text-sm text-center" style={{ color: "var(--hospital-red)" }}>
-                  Ocurrió un error. Intente nuevamente.
+                  {webhookError ?? "Ocurrió un error. Intente nuevamente."}
                 </p>
               )}
 
               <button
                 type="submit"
-                disabled={status === "loading"}
+                disabled={isLoading}
                 className="w-full h-14 rounded-xl text-base font-semibold text-white transition-all duration-200 hover:opacity-95 active:scale-[0.99] disabled:opacity-70 flex items-center justify-center gap-2"
                 style={{
                   background: "var(--hospital-blue)",
                   boxShadow: "0 8px 20px -8px var(--hospital-blue)",
                 }}
               >
-                {status === "loading" ? (
+                {isLoading ? (
                   <>
                     <Loader2 className="w-5 h-5 animate-spin" />
                     Generando turno...

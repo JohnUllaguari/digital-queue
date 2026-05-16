@@ -66,9 +66,63 @@ async function normalizeCatastrophicSsrResponse(response: Response): Promise<Res
   return brandedErrorResponse();
 }
 
+async function handleApiRoutes(request: Request): Promise<Response | null> {
+  const url = new URL(request.url);
+
+  if (url.pathname === "/api/turno-request" && request.method === "POST") {
+    const body = await request.json().catch(() => null);
+    if (!body || typeof body !== "object") {
+      return new Response(JSON.stringify({ error: "Invalid JSON body" }), { status: 400, headers: { "content-type": "application/json" } });
+    }
+
+    const { nombre, cedula, motivo } = body as Record<string, unknown>;
+    if (!nombre || !cedula || !motivo) {
+      return new Response(JSON.stringify({ error: "Missing fields" }), { status: 400, headers: { "content-type": "application/json" } });
+    }
+
+    const n8nWebhookUrl = "http://localhost:5678/webhook/registro-turno";
+    const resp = await fetch(n8nWebhookUrl, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        nombre,
+        cedula,
+        motivo,
+        timestamp: new Date().toISOString(),
+      }),
+    });
+
+    const responseText = await resp.text().catch(() => "");
+    if (!resp.ok) {
+      return new Response(
+        JSON.stringify({ error: `n8n returned ${resp.status}`, details: responseText }),
+        { status: 502, headers: { "content-type": "application/json" } },
+      );
+    }
+
+    const data = responseText ? JSON.parse(responseText) : null;
+    if (!data || typeof data !== "object") {
+      return new Response(
+        JSON.stringify({ error: "Invalid response from n8n", details: responseText }),
+        { status: 502, headers: { "content-type": "application/json" } },
+      );
+    }
+
+    return new Response(JSON.stringify({ ok: true, data }), {
+      status: 200,
+      headers: { "content-type": "application/json" },
+    });
+  }
+
+  return null;
+}
+
 export default {
   async fetch(request: Request, env: unknown, ctx: unknown) {
     try {
+      const apiResponse = await handleApiRoutes(request);
+      if (apiResponse) return apiResponse;
+
       const handler = await getServerEntry();
       const response = await handler.fetch(request, env, ctx);
       return await normalizeCatastrophicSsrResponse(response);
