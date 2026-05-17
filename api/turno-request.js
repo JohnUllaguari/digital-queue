@@ -38,15 +38,24 @@ export default async function handler(req, res) {
 
     const responseText = await n8nResp.text().catch(() => '')
 
+    let data = null
+    try { data = responseText ? JSON.parse(responseText) : null } catch { /* ignore */ }
+
+    // Si n8n devuelve un array (común en n8n), extraemos el primer elemento
+    if (Array.isArray(data) && data.length > 0) {
+      data = data[0]
+    }
+
     if (!n8nResp.ok) {
+      // Si n8n falló pero nos mandó datos en JSON, intentamos mandarlos al frontend
+      if (data && typeof data === 'object') {
+         return res.status(n8nResp.status).json(data)
+      }
       return res.status(502).json({
         error: `n8n returned ${n8nResp.status}`,
         details: responseText,
       })
     }
-
-    let data = null
-    try { data = responseText ? JSON.parse(responseText) : null } catch { /* ignore */ }
 
     if (!data || typeof data !== 'object') {
       return res.status(502).json({
