@@ -78,11 +78,11 @@ function Index() {
         return;
       }
 
-      if (!resp.ok || !data || !data.ok) {
+      if (!resp.ok) {
         throw new Error((data && (data.error || data.details)) || "Error al enviar la solicitud");
       }
 
-      setResponseData(data.data ?? null);
+      setResponseData(data);
       setStatus("success");
       setForm({ nombre: "", cedula: "", motivo: "" });
       setErrors({});
@@ -145,6 +145,31 @@ function Index() {
           </div>
         </div>
 
+        {/* Aseguradoras activas */}
+        <div className="mb-4 rounded-xl border border-border bg-card px-5 py-3" style={{ boxShadow: "var(--shadow-card)" }}>
+          <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground mb-2 text-center">
+            Aseguradoras activas
+          </p>
+          <div className="flex flex-wrap gap-2" style={{ justifyContent: "space-between", paddingLeft: "1.5rem", paddingRight: "1.5rem" }} >
+            {["SALUD S.A.", "CHUBB", "BMI", "ECUASANITAS"].map((name) => (
+              <span
+                key={name}
+                className="inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold"
+                style={{
+                  background: "var(--hospital-blue-soft)",
+                  color: "var(--hospital-blue)",
+                }}
+              >
+                <span
+                  className="w-1.5 h-1.5 rounded-full"
+                  style={{ background: "var(--hospital-green, #16a34a)" }}
+                />
+                {name}
+              </span>
+            ))}
+          </div>
+        </div>
+
         {/* Card */}
         <section
           className="bg-card rounded-2xl p-8 sm:p-10"
@@ -163,51 +188,93 @@ function Index() {
             <p className="mt-2 text-base text-muted-foreground">Ingrese los datos del paciente</p>
           </header>
 
-          {status === "no-procede" && responseData ? (
-            <div className="rounded-xl p-6 transition-all" style={{ background: "rgba(220, 38, 38, 0.12)" }}>
-              <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-red-100 text-red-700">
+          {status === "no-procede" ? (
+            <div className="rounded-xl p-6 transition-all" style={{ background: "rgba(220, 38, 38, 0.08)" }}>
+              {/* Icono */}
+              <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-red-100 text-red-600">
                 <AlertCircle className="w-7 h-7" />
               </div>
-              <h2 className="text-center text-2xl font-semibold text-red-900">No procede</h2>
-              <p className="mt-3 text-center text-sm text-red-700">
-                El hospital no tiene convenio con la aseguradora indicada y no puede tramitar el ingreso en este momento.
+              <h2 className="text-center text-2xl font-semibold" style={{ color: "var(--hospital-red, #dc2626)" }}>
+                No procede
+              </h2>
+              <p className="mt-2 text-center text-sm text-muted-foreground">
+                El hospital no puede tramitar el ingreso en este momento.
               </p>
-              <p className="mt-3 text-center text-sm text-red-700">
+
+              <p className="mt-6 text-center text-xs text-muted-foreground">
                 Se asignará una ambulancia de preferencia para su traslado.
               </p>
-              <div className="mt-4 text-left rounded-xl border border-red-200 bg-white p-4 overflow-x-auto">
-                <pre className="text-xs leading-5 text-red-900 whitespace-pre-wrap break-words">
-                  {JSON.stringify(responseData, null, 2)}
-                </pre>
-              </div>
-              <div className="mt-5 flex gap-3 justify-center">
+
+              <div className="mt-5 flex justify-center">
                 <button
                   type="button"
                   onClick={() => {
                     setResponseData(null);
                     setStatus("idle");
                   }}
-                  className="inline-flex items-center justify-center rounded-xl border border-red-300 bg-white px-4 py-3 text-sm font-semibold text-red-900 hover:bg-red-50"
+                  className="inline-flex items-center justify-center rounded-xl border border-red-200 bg-white px-6 py-3 text-sm font-semibold text-red-900 hover:bg-red-50 transition-colors"
                 >
-                  Cerrar
+                  Volver al formulario
                 </button>
               </div>
             </div>
           ) : status === "success" && responseData ? (
             <div className="rounded-xl p-6 transition-all" style={{ background: "var(--hospital-blue-soft)" }}>
-              <CheckCircle2 className="w-10 h-10 mx-auto mb-3" style={{ color: "var(--hospital-green)" }} />
-              <p className="text-sm text-muted-foreground">Respuesta recibida del webhook</p>
-              <div className="mt-4 text-left rounded-xl border border-border bg-background p-4 overflow-x-auto">
-                <pre className="text-xs leading-5 text-foreground whitespace-pre-wrap break-words">
-                  {JSON.stringify(responseData, null, 2)}
-                </pre>
+              {/* Icono */}
+              <div
+                className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl"
+                style={{ background: "rgba(255,255,255,0.7)" }}
+              >
+                <CheckCircle2 className="w-7 h-7" style={{ color: "var(--hospital-green)" }} />
               </div>
+              <h2 className="text-center text-2xl font-semibold text-foreground">
+                Registro exitoso
+              </h2>
+              <p className="mt-2 text-center text-sm text-muted-foreground">
+                Su solicitud fue procesada correctamente
+              </p>
+
+              <div className="mt-5 space-y-2">
+                {responseData && typeof responseData === "object" && !Array.isArray(responseData)
+                  ? Object.entries(responseData as Record<string, unknown>).map(([key, val]) => (
+                    <div
+                      key={key}
+                      className="rounded-lg border border-border bg-background px-4 py-3"
+                    >
+                      <span
+                        className="text-xs font-medium block mb-1"
+                        style={{ color: "var(--hospital-blue)" }}
+                      >
+                        {formatKey(key)}
+                      </span>
+                      {Array.isArray(val) ? (
+                        <ul className="space-y-1">
+                          {(val as unknown[]).map((item, i) => (
+                            <li key={i} className="text-sm text-foreground flex gap-2">
+                              <span className="shrink-0" style={{ color: "var(--hospital-blue)" }}>•</span>
+                              <span>{String(item)}</span>
+                            </li>
+                          ))}
+                        </ul>
+                      ) : (
+                        <span className="text-sm text-foreground font-medium">
+                          {formatValue(val, key)}
+                        </span>
+                      )}
+                    </div>
+                  ))
+                  : null}
+              </div>
+
               <div className="mt-5 flex gap-3 justify-center">
                 <button
                   type="button"
                   onClick={downloadPDF}
-                  className="inline-flex items-center justify-center rounded-xl bg-hospital-blue px-4 py-3 text-sm font-semibold text-white hover:opacity-95"
-                  style={{ boxShadow: "0 8px 20px -8px var(--hospital-blue)" }}
+                  className="inline-flex items-center justify-center rounded-xl px-6 py-3 text-sm font-semibold text-white hover:opacity-95 transition-opacity"
+                  style={{
+                    background: "var(--hospital-blue)",
+                    boxShadow: "0 8px 20px -8px var(--hospital-blue)",
+                  }}
                 >
                   Descargar PDF con QR
                 </button>
@@ -217,9 +284,9 @@ function Index() {
                     setResponseData(null);
                     setStatus("idle");
                   }}
-                  className="inline-flex items-center justify-center rounded-xl border border-border bg-background px-4 py-3 text-sm font-semibold text-foreground hover:bg-accent"
+                  className="inline-flex items-center justify-center rounded-xl border border-border bg-background px-6 py-3 text-sm font-semibold text-foreground hover:bg-accent transition-colors"
                 >
-                  Cerrar
+                  Nuevo registro
                 </button>
               </div>
             </div>
@@ -288,13 +355,88 @@ function Index() {
             </form>
           )}
         </section>
-
         <p className="text-center text-xs text-muted-foreground mt-6">
           Atención 24/7 · Sus datos son tratados con confidencialidad
         </p>
       </div>
     </main>
   );
+}
+
+/** Convierte claves de variables a etiquetas legibles en español */
+function formatKey(key: string): string {
+  const labels: Record<string, string> = {
+    nombre: "Nombre",
+    cedula: "Cédula",
+    motivo: "Motivo",
+    estado: "Estado",
+    turno: "Turno",
+    aseguradora: "Aseguradora",
+    timestamp: "Fecha de registro",
+    fecha: "Fecha",
+    error: "Error",
+    details: "Detalles",
+    message: "Mensaje",
+    mensaje: "Mensaje",
+    data: "Datos",
+    // Campos del webhook n8n
+    aprobado: "Aprobado",
+    nivel_cobertura: "Nivel de cobertura",
+    porcentaje_cobertura: "Cobertura",
+    monto_estimado: "Monto estimado",
+    riesgos: "Riesgos",
+    recomendacion: "Recomendación",
+  };
+  const lower = key.toLowerCase();
+  if (labels[lower]) return labels[lower];
+  // Fallback: camelCase → palabras, snake_case → palabras, capitalizar primera
+  return key
+    .replace(/_/g, " ")
+    .replace(/([A-Z])/g, " $1")
+    .trim()
+    .toLowerCase()
+    .replace(/^\w/, (c) => c.toUpperCase());
+}
+
+/** Formatea valores: timestamps ISO, booleanos, moneda, porcentaje y texto oración */
+function formatValue(val: unknown, key?: string): string {
+  // Booleanos
+  if (typeof val === "boolean") return val ? "Sí" : "No";
+
+  const str = String(val);
+
+  // Timestamps ISO → fecha legible en español
+  if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/.test(str)) {
+    try {
+      return new Date(str).toLocaleString("es-ES", {
+        day: "numeric",
+        month: "long",
+        year: "numeric",
+        hour: "2-digit",
+        minute: "2-digit",
+      });
+    } catch {
+      return str;
+    }
+  }
+
+  // Porcentaje
+  if (key && key.toLowerCase() === "porcentaje_cobertura" && typeof val === "number") {
+    return `${val}%`;
+  }
+
+  // Moneda
+  if (key && key.toLowerCase() === "monto_estimado" && typeof val === "number") {
+    return new Intl.NumberFormat("es-EC", { style: "currency", currency: "USD", maximumFractionDigits: 0 }).format(val);
+  }
+
+  // Campos de texto libre → tipo oración (primera letra en mayúscula)
+  const sentenceCaseKeys = ["nombre", "motivo", "recomendacion"];
+  if (key && sentenceCaseKeys.includes(key.toLowerCase()) && str.length > 0) {
+    return str.charAt(0).toUpperCase() + str.slice(1);
+  }
+
+  return str;
 }
 
 function Field({
