@@ -19,9 +19,10 @@ export default async function handler(req, res) {
     return res.status(400).json({ error: 'Missing fields' })
   }
 
-  const n8nWebhookUrl =
-    process.env.N8N_WEBHOOK_URL ??
-    'https://n8n-production-b57f.up.railway.app/webhook/registro-turno'
+  const n8nWebhookUrl = process.env.N8N_WEBHOOK_URL
+  if (!n8nWebhookUrl) {
+    return res.status(500).json({ error: 'N8N_WEBHOOK_URL not configured' })
+  }
 
   try {
     const n8nResp = await fetch(n8nWebhookUrl, {
