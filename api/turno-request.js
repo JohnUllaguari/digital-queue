@@ -19,7 +19,7 @@ export default async function handler(req, res) {
     return res.status(400).json({ error: 'Missing fields' })
   }
 
-  const n8nWebhookUrl = process.env.N8N_WEBHOOK_URL
+  const n8nWebhookUrl = process.env.N8N_WEBHOOK_URL ? process.env.N8N_WEBHOOK_URL.trim() : null
   if (!n8nWebhookUrl) {
     return res.status(500).json({ error: 'N8N_WEBHOOK_URL not configured' })
   }
@@ -66,6 +66,10 @@ export default async function handler(req, res) {
 
     return res.status(200).json(data)
   } catch (err) {
-    return res.status(500).json({ error: String(err) })
+    return res.status(500).json({ 
+      error: 'Fetch failed', 
+      details: String(err),
+      urlTried: n8nWebhookUrl
+    })
   }
 }
