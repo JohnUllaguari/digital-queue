@@ -4,17 +4,12 @@ import { Stethoscope, User, IdCard, AlertCircle, CheckCircle2, Loader2, Activity
 
 export const Route = createFileRoute("/")({
   component: Index,
-  head: () => ({
-    meta: [
-      { title: "Registro de Atención | Sistema Hospitalario" },
-      { name: "description", content: "Turnero digital para registro rápido de pacientes en sala de emergencias." },
-    ],
-  }),
 });
 
 function useClock() {
   const [now, setNow] = useState(() => new Date());
   useEffect(() => {
+    document.title = "Registro de Atención | Sistema Hospitalario";
     const id = setInterval(() => setNow(new Date()), 1000);
     return () => clearInterval(id);
   }, []);
