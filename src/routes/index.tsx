@@ -60,8 +60,7 @@ function Index() {
     setStatus("loading");
     setWebhookError(null);
     try {
-      // Test webhook (keep commented for future tests): http://localhost:5678/webhook-test/registro-turno
-      const resp = await fetch("http://localhost:5678/webhook/registro-turno", {
+      const resp = await fetch(import.meta.env.VITE_WEBHOOK_URL, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
