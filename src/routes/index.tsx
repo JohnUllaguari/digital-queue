@@ -55,7 +55,10 @@ function Index() {
     setStatus("loading");
     setWebhookError(null);
     try {
-      const resp = await fetch(import.meta.env.VITE_WEBHOOK_URL, {
+      const apiUrl = import.meta.env.DEV
+        ? (import.meta.env.VITE_WEBHOOK_URL as string)
+        : '/api/turno-request'
+      const resp = await fetch(apiUrl, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
