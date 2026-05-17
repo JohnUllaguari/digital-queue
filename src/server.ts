@@ -80,7 +80,9 @@ async function handleApiRoutes(request: Request): Promise<Response | null> {
       return new Response(JSON.stringify({ error: "Missing fields" }), { status: 400, headers: { "content-type": "application/json" } });
     }
 
-    const n8nWebhookUrl = "http://localhost:5678/webhook/registro-turno";
+    const n8nWebhookUrl =
+      process.env["N8N_WEBHOOK_URL"] ??
+      "https://n8n-production-b57f.up.railway.app/webhook/registro-turno";
     const resp = await fetch(n8nWebhookUrl, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
