@@ -193,15 +193,17 @@ function Index() {
               <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-red-100 text-red-600">
                 <AlertCircle className="w-7 h-7" />
               </div>
-              <h2 className="text-center text-2xl font-semibold" style={{ color: "var(--hospital-red, #dc2626)" }}>
+              <h2 className="text-center text-4xl font-semibold" style={{ color: "var(--hospital-red, #dc2626)" }}>
                 No procede
               </h2>
-              <p className="mt-2 text-center text-sm text-muted-foreground">
-                El hospital no puede tramitar el ingreso en este momento.
+              <p className="mt-2 text-center  text-muted-foreground">
+                El hospital no tiene convenio con su aseguradora o no se encuentra asegurado.
+                Acerquece a la ventanilla de admisión para más información o para realizar un pago directo.
               </p>
 
-              <p className="mt-6 text-center text-xs text-muted-foreground">
-                Se asignará una ambulancia de preferencia para su traslado.
+
+              <p className="mt-2 text-center text-muted-foreground">
+                En caso de que no se pueda tramitar el ingreso, se asignará una ambulancia de preferencia para su traslado.
               </p>
 
               <div className="mt-5 flex justify-center">
